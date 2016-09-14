@@ -66,6 +66,8 @@ class TwitterAPIExchange
      */
     protected $httpStatusCode;
 
+    protected $lastResponseHeaders; 
+
     /**
      * Create the API access object. Requires an array of settings::
      * oauth access token, oauth access token secret, consumer key, consumer secret
@@ -282,9 +284,20 @@ class TwitterAPIExchange
         $getfield = $this->getGetfield();
         $postfields = $this->getPostfields();
 
+        $this->lastResponseHeaders = [];
+        $store_header = function($feee, $header_line) {
+            $keyValue = explode(':', trim($header_line));
+            if (sizeof($keyValue)>=2) {
+                $name = array_shift($keyValue);
+                $value = trim(implode(':', $keyValue));
+                $this->lastResponseHeaders[strtolower($name)] = $value;
+            }
+            return strlen($header_line);
+        };
+
         $options = array(
             CURLOPT_HTTPHEADER => $header,
-            CURLOPT_HEADER => false,
+            CURLOPT_HEADERFUNCTION => $store_header,
             CURLOPT_URL => $this->url,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => 10,
@@ -400,5 +413,19 @@ class TwitterAPIExchange
     public function getHttpStatusCode()
     {
         return $this->httpStatusCode;
+    }
+
+    public function rateRemaining() {
+        if ($this->lastResponseHeaders && isset($this->lastResponseHeaders['x-rate-limit-remaining'])) {
+            return $this->lastResponseHeaders['x-rate-limit-remaining'];
+        }        
+        return null;
+    }
+
+    public function rateResetAt() {
+        if ($this->lastResponseHeaders && isset($this->lastResponseHeaders['x-rate-limit-reset'])) {
+            return $this->lastResponseHeaders['x-rate-limit-reset'];
+        }        
+        return null;
     }
 }
